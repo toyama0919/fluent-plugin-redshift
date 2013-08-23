@@ -35,8 +35,11 @@ class RedshiftOutput < BufferedOutput
   config_param :redshift_password, :string
   config_param :redshift_tablename, :string
   config_param :redshift_schemaname, :string, :default => nil
-  config_param :redshift_copy_base_options, :string , :default => "FILLRECORD ACCEPTANYDATE TRUNCATECOLUMNS"
+  config_param :redshift_copy_base_options, :string , :default => "TRUNCATECOLUMNS"
   config_param :redshift_copy_options, :string , :default => nil
+  config_param :redshift_exclude_column, :string , :default => nil
+  config_param :redshift_date_format, :string , :default => "YYYY-MM-DD"
+  config_param :redshift_time_format, :string , :default => "YYYY-MM-DD HH:MI:SS."
   # file format
   config_param :file_type, :string, :default => nil  # json, tsv, csv, msgpack
   config_param :delimiter, :string, :default => nil
@@ -57,7 +60,8 @@ class RedshiftOutput < BufferedOutput
     }
     @delimiter = determine_delimiter(@file_type) if @delimiter.nil? or @delimiter.empty?
     $log.debug format_log("redshift file_type:#{@file_type} delimiter:'#{@delimiter}'")
-    @copy_sql_template = "copy #{table_name_with_schema} from '%s' CREDENTIALS 'aws_access_key_id=#{@aws_key_id};aws_secret_access_key=%s' delimiter '#{@delimiter}' GZIP ESCAPE #{@redshift_copy_base_options} #{@redshift_copy_options};"
+    @copy_sql_template = "copy #{table_name_with_schema} from '%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' delimiter '#{@delimiter}' DATEFORMAT AS '#{redshift_date_format}' TIMEFORMAT AS '#{redshift_time_format}' GZIP ESCAPE #{@redshift_copy_base_options} #{@redshift_copy_options};"
+    $log.info "@copy_sql_template => #{@copy_sql_template}"
   end
 
   def start
@@ -112,7 +116,7 @@ class RedshiftOutput < BufferedOutput
 
     # copy gz on s3 to redshift
     s3_uri = "s3://#{@s3_bucket}/#{s3path}"
-    sql = @copy_sql_template % [s3_uri, @aws_sec_key]
+    sql = @copy_sql_template % [s3_uri, @aws_key_id , @aws_sec_key]
     $log.debug  format_log("start copying. s3_uri=#{s3_uri}")
     conn = nil
     begin
@@ -157,6 +161,7 @@ class RedshiftOutput < BufferedOutput
   def create_gz_file_from_structured_data(dst_file, chunk, delimiter)
     # fetch the table definition from redshift
     redshift_table_columns = fetch_table_columns
+    redshift_table_columns = redshift_table_columns.delete_if {|item| item == redshift_exclude_column }
     if redshift_table_columns == nil
       raise "failed to fetch the redshift table definition."
     elsif redshift_table_columns.empty?
@@ -170,7 +175,7 @@ class RedshiftOutput < BufferedOutput
       gzw = Zlib::GzipWriter.new(dst_file)
       chunk.msgpack_each do |record|
         begin
-          hash = json? ? json_to_hash(record[@record_log_tag]) : record[@record_log_tag]
+          hash = json? ? json_to_hash(record.to_json) : record[@record_log_tag]
           tsv_text = hash_to_table_text(redshift_table_columns, hash, delimiter)
           gzw.write(tsv_text) if tsv_text and not tsv_text.empty?
         rescue => e
