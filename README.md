@@ -52,6 +52,7 @@ Example (watch and upload json formatted apache log):
     </source>
 
     <match redshift.json>
+
         type redshift
 
         # s3 (for copying data to redshift)
@@ -70,6 +71,9 @@ Example (watch and upload json formatted apache log):
         redshift_password fluent-password
         redshift_tablename apache_log
         file_type json
+        redshift_exclude_column id
+        redshift_date_format YYYY-MM-DD
+        redshift_time_format HH:MI:SS
 
         # buffer
         buffer_type file
@@ -112,6 +116,12 @@ Example (watch and upload json formatted apache log):
 + `redshift_tablename` (required) : table name to store data.
 
 + `redshift_schemaname` : schema name to store data. By default, this option is not set and find table without schema as your own search_path.
+
++ `redshift_exclude_column` : Exclude Import Column.
+
++ `redshift_date_format` : Date Format.(Default YYYY-MM-DD)
+
++ `redshift_time_format` : Date Format.(Default YYYY-MM-DD HH:MI:SS)
 
 + `file_type` : file format of the source data.  `csv`, `tsv`, `msgpack` or `json` are available.
 
