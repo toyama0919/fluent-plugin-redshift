@@ -39,7 +39,7 @@ class RedshiftOutput < BufferedOutput
   config_param :redshift_copy_options, :string , :default => nil
   config_param :redshift_exclude_column, :string , :default => nil
   config_param :redshift_date_format, :string , :default => "YYYY-MM-DD"
-  config_param :redshift_time_format, :string , :default => "YYYY-MM-DD HH:MI:SS."
+  config_param :redshift_time_format, :string , :default => "YYYY-MM-DD HH:MI:SS"
   # file format
   config_param :file_type, :string, :default => nil  # json, tsv, csv, msgpack
   config_param :delimiter, :string, :default => nil
